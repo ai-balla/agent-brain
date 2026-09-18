@@ -1,0 +1,7 @@
+# openrc isn't used — the container runs scheduler.sh. These are the
+# equivalent crontab lines (documentation only). Run intervals are tuned via
+# the SYNC_INTERVAL / BACKUP_INTERVAL / MIRROR_INTERVAL environment variables.
+
+*/15 * * * * /scripts/auto-sync.sh
+30   3 * * * /scripts/backup.sh
+17   */4 * * /scripts/github-mirror-sync.sh

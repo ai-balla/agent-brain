@@ -1,0 +1,19 @@
+# --- local secrets / config (never commit) ---
+.env
+*.env
+!*.env.example
+
+# --- runtime data (vault, gitea db, backups, mirrors) ---
+/data/*
+!/data/.gitkeep
+
+# --- any credential-ish files caught anywhere ---
+**/*.cred*
+**/credentials*
+**/*_token*
+*.pem
+*.key
+
+# --- misc ---
+.DS_Store
+*.log

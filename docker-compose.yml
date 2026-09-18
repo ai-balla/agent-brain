@@ -1,0 +1,111 @@
+# Agent Brain — central AI memory hub, self-hosted
+# ---------------------------------------------------------------------------
+# Services
+#   gitea           git server holding the memory-vault (and your mirrors)
+#   mcp-bridge      MCP streamable-http gateway so remote agents read/write
+#                   the vault over Cloudflare Zero Trust
+#   brain-hub       scheduler sidecar: auto-sync, backup, GitHub mirror
+#   cloudflared     (optional, profile "tunnel") remote tunnel via TUNNEL_TOKEN
+#
+# All app services bind 127.0.0.1 only. When you set TUNNEL_TOKEN, launch with:
+#   docker compose --profile tunnel up -d
+# ---------------------------------------------------------------------------
+services:
+  gitea:
+    image: gitea/gitea:${GITEA_VERSION:-1.27}
+    container_name: agent-brain-gitea
+    restart: unless-stopped
+    environment:
+      - USER_UID=${PUID:-1000}
+      - USER_GID=${PGID:-1000}
+      - GITEA__server__DOMAIN=${DOMAIN_NAME}
+      - GITEA__server__ROOT_URL=https://${DOMAIN_NAME}/
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__server__SSH_DOMAIN=${DOMAIN_NAME}
+      - GITEA__server__SSH_PORT=${GITEA_SSH_PORT:-2222}
+      - GITEA__server__OFFLINE_MODE=${GITEA_OFFLINE_MODE:-false}
+      - GITEA__service__DISABLE_REGISTRATION=true
+      - GITEA__service__REQUIRE_SIGNIN_VIEW=false
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__security__INSTALL_LOCK=true
+      - GITEA__openid__ENABLE_OPENID_SIGNIN=false
+      - GITEA__openid__ENABLE_OPENID_SIGNUP=false
+      - GITEA_ADMIN_USERNAME=${GITEA_ADMIN_USERNAME:-ai-agent}
+      - GITEA_ADMIN_PASSWORD=${GITEA_ADMIN_PASSWORD:-}
+      - GITEA_ADMIN_EMAIL=${GITEA_ADMIN_EMAIL:-${OWNER_EMAIL}}
+    volumes:
+      - ./data/gitea:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "127.0.0.1:${GITEA_PORT:-3004}:3000"
+      - "127.0.0.1:${GITEA_SSH_PORT:-2222}:22"
+    logging:
+      driver: "json-file"
+      options: {max-size: "10m", max-file: "3"}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  mcp-bridge:
+    build: ./mcp-server
+    container_name: agent-brain-mcp
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      - VAULT_ROOT=/vault
+      - CF_ACCESS_CLIENT_ID=${CF_ACCESS_CLIENT_ID:-}
+      - CF_ACCESS_CLIENT_SECRET=${CF_ACCESS_CLIENT_SECRET:-}
+      - MCP_ALLOW_NO_AUTH=${MCP_ALLOW_NO_AUTH:-false}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-127.0.0.1}
+    volumes:
+      - ./data/obsidian-vault:/vault
+    ports:
+      - "127.0.0.1:${MCP_PORT:-8083}:8083"
+    logging:
+      driver: "json-file"
+      options: {max-size: "10m", max-file: "3"}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -X POST http://127.0.0.1:8083/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"vault_info\",\"arguments\":{}}}' -o /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  brain-hub:
+    build: ./brain-hub
+    container_name: agent-brain-hub
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      - VAULT_PATH=/vault
+      - GITEA_INTERNAL_URL=http://gitea:3000
+      - GITEA_OWNER=${GITEA_ADMIN_USERNAME:-ai-agent}
+      - GITEA_TOKEN=${GITEA_TOKEN:-}
+      - GH_TOKEN=${GH_TOKEN:-}
+      - GIT_USER_NAME=${GIT_USER_NAME:-ai-agent}
+      - GIT_USER_EMAIL=${GIT_USER_EMAIL:-${OWNER_EMAIL}}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./data/obsidian-vault:/vault
+      - ./data/gitea:/gitea-data:ro
+      - ./data/backups:/backups
+      - ./data/mirrors:/mirrors
+    depends_on:
+      gitea:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options: {max-size: "10m", max-file: "3"}
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: agent-brain-cloudflared
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate --tag agent-brain run --token ${TUNNEL_TOKEN:-}
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
