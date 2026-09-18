@@ -61,8 +61,13 @@ services:
       - CF_ACCESS_CLIENT_SECRET=${CF_ACCESS_CLIENT_SECRET:-}
       - MCP_ALLOW_NO_AUTH=${MCP_ALLOW_NO_AUTH:-false}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-127.0.0.1}
+      - AGENT_SCOPES=${AGENT_SCOPES:-}
+      - ENFORCE_SCOPES=${ENFORCE_SCOPES:-false}
+      - WRITE_APPROVAL=${WRITE_APPROVAL:-false}
+      - AUDIT_LOG_PATH=${AUDIT_LOG_PATH:-/audit/access.jsonl}
     volumes:
       - ./data/obsidian-vault:/vault
+      - ./data/audit:/audit
     ports:
       - "127.0.0.1:${MCP_PORT:-8083}:8083"
     logging:
@@ -94,6 +99,7 @@ services:
       - ./data/gitea:/gitea-data:ro
       - ./data/backups:/backups
       - ./data/mirrors:/mirrors
+      - ./data/audit:/audit:ro
     depends_on:
       gitea:
         condition: service_healthy

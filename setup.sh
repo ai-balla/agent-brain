@@ -55,6 +55,10 @@ OWNER_EMAIL=${OWNER_EMAIL}
 GIT_USER_NAME=${GIT_USER_NAME}
 GIT_USER_EMAIL=${GIT_USER_EMAIL}
 ALLOWED_HOSTS=${DOMAIN_NAME},127.0.0.1
+AGENT_SCOPES=
+ENFORCE_SCOPES=false
+WRITE_APPROVAL=false
+AUDIT_LOG_PATH=/audit/access.jsonl
 PUID=${DEFAULT_UID}
 PGID=${DEFAULT_GID}
 GITEA_VERSION=1.27
@@ -88,7 +92,7 @@ GITEA_INTERNAL="http://127.0.0.1:${GITEA_PORT}"
 GITEA_OWNER="$GITEA_ADMIN_USERNAME"
 GITEA_TOKEN="${GITEA_TOKEN:-}"
 
-mkdir -p data/gitea data/obsidian-vault data/backups data/mirrors
+mkdir -p data/gitea data/obsidian-vault data/backups data/mirrors data/audit
 if [ "$(id -u)" = "0" ]; then
   chown -R "$PUID:$PGID" data
 else
@@ -203,6 +207,10 @@ cat <<SHEET
   3. Mount data/obsidian-vault in Obsidian as a vault.
   4. Clone on your phone/PC: git clone via the tunnel host ${DOMAIN_NAME}.
   5. Optional GitHub mirror: put a repo-scope PAT in GH_TOKEN=.env.
+  6. Multi-agent isolation (recommended): create one Cloudflare service token
+     PER agent, then set AGENT_SCOPES in .env (each agent gets its own
+     workspace subpath + optional read-only). Turn on ENFORCE_SCOPES=true and
+     WRITE_APPROVAL=true for stricter human-in-the-loop. See SECURITY.md.
 
   CLIENT SNIPPET (paste into your agent MCP config):
     url:     ${MCP_PUBLIC_URL}

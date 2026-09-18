@@ -4,6 +4,13 @@ Replace `<MCP_PUBLIC_URL>` with your endpoint (setup.sh prints it, e.g.
 `https://hub.example.com/mcp`) and `<CF_ACCESS_CLIENT_ID>` /
 `<CF_ACCESS_CLIENT_SECRET>` with the Cloudflare service token values.
 
+> **One token per agent (recommended).** If the hub runs scoped (see
+> `SECURITY.md`), create a **separate** Cloudflare service token per agent and
+> put `AGENT_SCOPES` entry for it in `.env`. The token in the snippet below
+> determines which workspace that agent sees. Never reuse a token across
+> agents you want to isolate. Each agent can call `tools/call workspace_info`
+> to print exactly which workspace and permissions it holds.
+
 ---
 
 ## Claude Code

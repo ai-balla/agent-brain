@@ -126,7 +126,9 @@ agent-brain/
 ├── brain-hub/               # scheduler + sync/backup/mirror/health scripts
 ├── seed/vault/              # 3-layer vault template + AGENTS.md rules
 ├── client/                  # per-app MCP snippets
-└── data/                    # runtime (git-ignored): vault, gitea, backups, mirrors
+├── sandbox/                 # example: run third-party MCP tools containerized
+├── SECURITY.md              # threat model, scoping, hardening checklist
+└── data/                    # runtime (git-ignored): vault, gitea, backups, audit
 ```
 
 The vault structure every agent reads (`AGENTS.md`):
@@ -142,13 +144,24 @@ skills/        reusable verified workflows
 - The bridge re-validates Cloudflare service-token headers on **every** tool
   call (empty CF vars + `MCP_ALLOW_NO_AUTH=false` → refuses to start).
 - Every tool path is locked to the vault root.
+- **Per-agent scopes** (`AGENT_SCOPES`): each service token is pinned to its
+  own workspace subpath, optional read-only; `ENFORCE_SCOPES=true` denies
+  unknown tokens (strict zero-trust).
+- **Human-in-the-loop**: `WRITE_APPROVAL=true` stages `write_file` under
+  `vault/_pending/<agent>/…` until a human moves it into place.
+- **Audit trail**: every call appends an append-only line to
+  `./data/audit/access.jsonl` (outside the vault — agents can't scrub it).
 - Mirror script performs zero deletions (GitHub-side deletions are preserved
   locally; see the header comment in `brain-hub/scripts/github-mirror-sync.sh`).
+
+Read the full model, the honest exposure assessment, and the hardening
+checklist in [`SECURITY.md`](SECURITY.md).
 
 ## Roadmap (Augmented over time)
 - [ ] Vector search / semantic memory (Qdrant already runs on our host — wired
       into the bridge in a later phase)
-- [ ] Per-agent service-token identity (audit "who wrote what")
+- [x] Per-agent service-token identity + scoped workspaces (`AGENT_SCOPES`,
+      `ENFORCE_SCOPES`) with an append-only audit log and approval staging
 - [ ] Web UI in the vault browser (bundled Obsidian-style editor)
 - [ ] Importers for Google Takeout / Keep (see our earlier work) shipped as scripts
 

@@ -1,0 +1,28 @@
+# Isolated example: run a third-party / untrusted MCP service containerized.
+#
+# Copy to sandbox/third-party-mcp.yml and adapt:
+#   - image / command: whatever the tool requires
+#   - volumes: only the exact subtree it is allowed to see (its own workspace)
+#   - user: match the PUID/PGID you run the rest of the stack with (1000:1000)
+#
+# Hardening applied: read-only root filesystem, no network egress
+# (network_mode: none), bounded tmpfs, non-root user, read-only vault mount.
+#
+# Start it (for testing) with:
+#   docker compose -f sandbox/third-party-mcp.yml up
+services:
+  auxiliary-mcp:
+    image: node:22-slim
+    command: ["npx", "-y", "<replace-with-the-tool>"]
+    container_name: agent-brain-aux-mcp
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    user: "1000:1000"
+    network_mode: "none"
+    volumes:
+      # Only that agent's own workspace, and read-only.
+      - ../data/obsidian-vault/agents/<agent-slug>:/work/data:ro
+    security_opt:
+      - no-new-privileges:true

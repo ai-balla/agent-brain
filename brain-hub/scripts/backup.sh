@@ -25,8 +25,14 @@ else
   echo "$(ts) [skip] /gitea-data not mounted"
 fi
 
-# 3) Prune old backups.
-find /backups \( -name 'vault-*.bundle' -o -name 'gitea-*.tar.gz' \) -mtime +"$KEEP" -delete
+# 3) Audit trail (outside the vault, agent-inaccessible) — back it up too.
+if [ -d /audit ] && [ -n "$(ls -A /audit 2>/dev/null)" ]; then
+  tar -czf "/backups/audit-$STAMP.tar.gz" -C /audit . 2>/dev/null
+  echo "$(ts) [ok] audit trail"
+fi
+
+# 4) Prune old backups.
+find /backups \( -name 'vault-*.bundle' -o -name 'gitea-*.tar.gz' -o -name 'audit-*.tar.gz' \) -mtime +"$KEEP" -delete
 
 echo "$(ts) [ok] backups pruned > ${KEEP}d. Current:"
 ls -lh /backups
